@@ -84,7 +84,7 @@ async fn main(
         rag.create_regular_collection().await?;
         rag.create_cache_collection().await?;
 
-        rag.embed_and_upsert_csv_file("text.csv".into()).await?;
+        rag.embed_and_upsert_csv_file("./sata/customers-100.csv".into()).await?;
     }
 
     let router = Router::new().route("/prompt", post(prompt)).with_state(rag);
