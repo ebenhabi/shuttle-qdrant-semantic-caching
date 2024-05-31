@@ -12,9 +12,16 @@ use qdrant_client::qdrant::{
     WithPayloadSelector,
     SearchPoints
 };
+use async_openai::types::{
+    ChatCompletionRequestMessage,
+    ChatCompletionRequestSystemMessageArgs,
+    ChatCompletionRequestUserMessageArgs,
+    CreateChatCompletionRequestArgs,
+    CreateEmbeddingRequest,
+    EmbeddingInput
+};
 
 use async_openai::{config::OpenAIConfig, Client, Embeddings};
-use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateEmbeddingRequest, EmbeddingInput};
 
 #[derive(Clone)]
 pub struct RAGSystem {
@@ -147,7 +154,7 @@ impl RAGSystem {
             ));
         }
 
-        Ok(embeddings.data.into_iter().next().unwrap().embedding().embedding)
+        Ok(embeddings.data.into_iter().next().unwrap().embedding)
     }
 
     /* Upserting embeddings */
