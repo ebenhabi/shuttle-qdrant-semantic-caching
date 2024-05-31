@@ -81,7 +81,7 @@ async fn main(
     let setup_required = true;
 
     if setup_required {
-        rag.create_cache_collection().await?;
+        rag.create_regular_collection().await?;
         rag.create_cache_collection().await?;
 
         rag.embed_and_upsert_csv_file("text.csv".into()).await?;
