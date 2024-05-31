@@ -3,18 +3,13 @@ mod qdrant;
 use std::env;
 
 use axum::{Json, extract::State, response::IntoResponse, http::StatusCode};
-use qdrant_client::client::QdrantClient;
 use axum::{routing::post, Router};
-use serde::Deserialize;
-use shuttle_runtime::SecretStore;
-use shuttle_qdrant::Qdrant;
 
 use qdrant::RAGSystem;
+use qdrant_client::client::QdrantClient;
 
-
-async fn hello_world() -> &'static str {
-    "Hello, world!"
-}
+use serde::Deserialize;
+use shuttle_runtime::SecretStore;
 
 /* Using Qdrant in a Rust web service */
 #[derive(Deserialize)]

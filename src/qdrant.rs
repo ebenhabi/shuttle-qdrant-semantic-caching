@@ -1,12 +1,20 @@
 use anyhow::Result;
+use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
-use qdrant_client::prelude::{CreateCollection, Distance, QdrantClient};
-use qdrant_client::qdrant::{vectors_config::Config, VectorParams, VectorsConfig, WithPayloadSelector, PointStruct, SearchPoints};
+
+use qdrant_client::prelude::{CreateCollection, Distance, PointStruct, QdrantClient};
+use qdrant_client::qdrant::{
+    vectors_config::Config,
+    with_payload_selector::SelectorOptions,
+    VectorParams,
+    VectorsConfig,
+    WithPayloadSelector,
+    SearchPoints
+};
+
 use async_openai::{config::OpenAIConfig, Client, Embeddings};
-use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateEmbeddingRequest, EmbeddingInput};
-use qdrant_client::qdrant::Datatype::Default;
-use qdrant_client::qdrant::with_payload_selector::SelectorOptions;
+use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateEmbeddingRequest, EmbeddingInput};
 
 #[derive(Clone)]
 pub struct RAGSystem {
@@ -30,7 +38,7 @@ impl RAGSystem {
 
         Self {
             openai_client,
-            qdrant_client,
+            qdrant_client: Arc::new(qdrant_client),
         }
     }
 
@@ -43,6 +51,8 @@ impl RAGSystem {
                     config: Some(Config::Params(VectorParams {
                         size: 1536,
                         distance: Distance::Cosine.into(),
+                        hnsw_config: None,
+                        quantization_config: None,
                         ..Default::default()
                     })),
                 }),
@@ -81,8 +91,11 @@ impl RAGSystem {
 
         // note here that we skip 1 because CSV files typically have headers
         // if you don't have any headers, you can remove it
-        let chunked_file_contents: Vec<String> =
-            file_contents.lines().skip(1).map(|x| x.to_owned()).collect();
+        let chunked_file_contents: Vec<String> = file_contents
+            .lines()
+            .skip(1)
+            .map(|x| x.to_owned())
+            .collect();
 
         let embedding_request = CreateEmbeddingRequest {
             model: "text-embedding-ada-002".to_string(),
@@ -197,8 +210,7 @@ impl RAGSystem {
             .qdrant_client
             .search_points(&search_points)
             .await
-            .inspect_err(|x| println!("An error occurred while searching for points: {x}"))
-            .unwrap();
+            .inspect_err(|x| println!("An error occurred while searching for points: {x}"))?;
 
         let result = search_result.result.into_iter().next();
 
@@ -227,8 +239,7 @@ impl RAGSystem {
             .qdrant_client
             .search_points(&search_points)
             .await
-            .inspect_err(|x| println!("An error occurred while searching for points: {x}"))
-            .unwrap();
+            .inspect_err(|x| println!("An error occurred while searching for points: {x}"))?;
 
         let result = search_result.result.into_iter().next();
 
@@ -255,6 +266,12 @@ impl RAGSystem {
                 CreateChatCompletionRequestArgs::default()
                     .model("gpt-4o")
                     .messages(vec![
+                        // First we add the system message to define what the Agent does
+                        ChatCompletionRequestMessage::System(
+                            ChatCompletionRequestSystemMessageArgs::default()
+                                .build()?,
+                        ),
+                        // Then we add our prompt
                         ChatCompletionRequestMessage::User(
                             ChatCompletionRequestUserMessageArgs::default()
                                 .content(input)
@@ -265,6 +282,7 @@ impl RAGSystem {
             )
             .await
             .map(|res| {
+                // We extract the first one
                 match res.choices[0].message.content.clone() {
                     Some(res) => Ok(res),
                     None => Err(anyhow::anyhow!("There was no result from OpenAI")),
